@@ -36,6 +36,7 @@ namespace inicpp
 		 */
 		static size_t find_last_escaped(const std::string &str, char ch);
 		static std::string unescape(const std::string &str);
+		static std::string parser::extract_file_name_from_include(const std::string &str);
 		static std::string delete_comment(const std::string &str);
 		static std::vector<std::string> parse_option_list(const std::string &str);
 		static void handle_links(const config &cfg,
@@ -46,7 +47,78 @@ namespace inicpp
 
 		static config internal_load(std::istream &str);
 		static void internal_save(const config &cfg, const schema &schm, std::ostream &str);
+	private:
+		/**
+		* This is a common ancestor to classes file_fetcher and string_strema_fetcher.
+		* Hese classes allows to access to ifstream or stringstream uniformly.
+		*/
+		class resource_fetcher
+		{
+		public:
+			/**
+			* This method returns a resource corresponding to given name.
+			*/
+			virtual std::unique_ptr<std::istream> get_resource(const std::string & name);
+			/**
+			* This method is used to release all resources.
+			*/
+			virtual void release_all();
+		};
+		/**
+		* The following classes are enabling us to work with files and prepared string_streams alike.
+		*/
+		class file_fetcher : public resource_fetcher
+		{
+		public:
+			virtual std::unique_ptr<std::istream> get_resource(const std::string &file_name)
+			{
+				std::unique_ptr<std::istream> iStream(new std::ifstream(file_name));
+				return iStream;
+			}
+			virtual void release_all() {}
+		};
+		/**
+		* This class implements methods of resource_fetcher
+		*/
+		class string_stream_fetcher : public resource_fetcher
+		{
+		private:
+			std::vector< std::pair< std::string, std::unique_ptr< std::stringstream > > > resources_;
+		public:
+			virtual std::unique_ptr<std::istream> get_resource(const std::string &string_name);
 
+			void insert_stream(std::string name, std::unique_ptr <std::stringstream> stream)
+			{
+				resources_.push_back(std::pair< std::string, std::unique_ptr < std::stringstream > >(name, std::move(stream)));
+			}
+			virtual void release_all()
+			{
+				for (auto i = resources_.begin(); i < resources_.end(); i++)
+				{
+					i->second.release();
+				}
+				resources_.clear();
+			}
+
+		};
+
+		class resource_stack
+		{
+		private:
+			std::vector< std::unique_ptr<std::istream> > istreams_;
+		public:
+			void push_back(std::unique_ptr< std::istream> new_istream)
+			{
+				istreams_.push_back(std::move(new_istream));
+			}
+			bool get_line(std::string & out_string);
+			void release_all();
+
+
+		};
+		static config parser::internal_load(std::unique_ptr<std::istream> initial_stream,
+			const std::string & initial_stream_name,
+			resource_fetcher * resources);
 	public:
 		/**
 		 * Deleted default constructor.
@@ -166,6 +238,9 @@ namespace inicpp
 		*/
 		static void save(const schema &schm, std::ostream &str);
 	};
+
+
+	
 }
 
 #endif
