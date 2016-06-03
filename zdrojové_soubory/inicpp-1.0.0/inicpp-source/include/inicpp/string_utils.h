@@ -121,6 +121,24 @@ namespace inicpp
 		 */
 		template <>
 		unsigned_ini_t parse_string<unsigned_ini_t>(const std::string &value, const std::string &option_name);
+		/**
+		* Parse string to date value.
+		* @param value Value to be parsed
+		* @param option_name Option name from this value - will be in exception text if thrown
+		* @return parsed value with correct type
+		* @throws invalid_type_exception if string cannot be parsed
+		*/
+		template <>
+		date_ini_t parse_string<date_ini_t>(const std::string &value, const std::string &option_name);
+		/**
+		* Parse string to locale value.
+		* @param value Value to be parsed
+		* @param option_name Option name from this value - will be in exception text if thrown
+		* @return parsed value with correct type
+		* @throws invalid_type_exception if string cannot be parsed
+		*/
+		template <>
+		locale_ini_t parse_string<locale_ini_t>(const std::string &value, const std::string &option_name);
 	}
 
 	/** Internal namespace to hide to_string methods. */

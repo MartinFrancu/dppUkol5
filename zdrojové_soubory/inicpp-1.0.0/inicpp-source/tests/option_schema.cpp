@@ -106,6 +106,14 @@ TEST(option_schema, type_deduction)
 	option_schema_params<enum_ini_t> enum_params;
 	option_schema enum_option(enum_params);
 	EXPECT_EQ(enum_option.get_type(), option_type::enum_e);
+
+	option_schema_params<date_ini_t> date_params;
+	option_schema date_option(date_params);
+	EXPECT_EQ(date_option.get_type(), option_type::date_e);
+
+	option_schema_params<locale_ini_t> locale_params;
+	option_schema locale_option(locale_params);
+	EXPECT_EQ(locale_option.get_type(), option_type::locale_e);
 }
 
 TEST(option_schema, validation)

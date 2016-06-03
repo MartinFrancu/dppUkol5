@@ -11,7 +11,6 @@
 #include "option_schema.h"
 #include "string_utils.h"
 #include "types.h"
-#include "types.h"
 
 
 namespace inicpp
@@ -192,6 +191,8 @@ namespace inicpp
 			case option_type::unsigned_e:
 				return convertor<unsigned_ini_t, ReturnType>::get_converted_value(value);
 				break;
+			case option_type::date_e: return convertor<date_ini_t, ReturnType>::get_converted_value(value); break;
+			case option_type::locale_e: return convertor<locale_ini_t, ReturnType>::get_converted_value(value); break;
 			case option_type::invalid_e:
 			default:
 				// never reached
@@ -304,6 +305,18 @@ namespace inicpp
 		 * @return reference to this
 		 */
 		option &operator=(enum_ini_t arg);
+		/**
+		* Overloaded alias for set() function.
+		* @param arg date_t
+		* @return reference to this
+		*/
+		option &operator=(date_ini_t arg);
+		/**
+		* Overloaded alias for set() function.
+		* @param arg locale_t
+		* @return reference to this
+		*/
+		option &operator=(locale_ini_t arg);
 
 		/**
 		 * Get single element value.

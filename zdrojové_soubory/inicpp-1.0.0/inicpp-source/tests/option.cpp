@@ -181,6 +181,31 @@ TEST(option, writing_to_stream)
 	str << my_option;
 	EXPECT_EQ(str.str(), "name = enum_value\n");
 
+	// date
+	str.str("");
+	tm time_data{
+		0,
+		12,
+		23,
+		7,
+		2,
+		92,
+		0,
+		0,
+		0
+	};
+	date_ini_t date(time_data);
+	my_option.set<date_ini_t>(date);
+	str << my_option;
+	EXPECT_EQ(str.str(), "name = 1992-03-07 23:12:00\n");
+
+	// locale
+	str.str("");
+	std::locale locale("cs-CZ");
+	my_option.set<locale_ini_t>(locale);
+	str << my_option;
+	EXPECT_EQ(str.str(), "name = cs-CZ\n");
+
 	// string list
 	str.str("");
 	my_option.set_list<string_ini_t>({"option 1", "option 2"});

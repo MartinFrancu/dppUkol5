@@ -19,6 +19,8 @@ namespace inicpp
 		case option_type::signed_e: params_ = copy_schema<signed_ini_t>(source.params_); break;
 		case option_type::string_e: params_ = copy_schema<string_ini_t>(source.params_); break;
 		case option_type::unsigned_e: params_ = copy_schema<unsigned_ini_t>(source.params_); break;
+		case option_type::date_e: params_ = copy_schema<date_ini_t>(source.params_); break;
+		case option_type::locale_e: params_ = copy_schema<locale_ini_t>(source.params_); break;
 		case option_type::invalid_e:
 			// never reached
 			throw invalid_type_exception("Invalid option type");
@@ -111,6 +113,12 @@ namespace inicpp
 		case option_type::unsigned_e:
 			validate_typed_option_items<unsigned_ini_t>(opt.get_list<unsigned_ini_t>(), opt.get_name());
 			break;
+		case option_type::date_e:
+			validate_typed_option_items<date_ini_t>(opt.get_list<date_ini_t>(), opt.get_name());
+			break;
+		case option_type::locale_e:
+			validate_typed_option_items<locale_ini_t>(opt.get_list<locale_ini_t>(), opt.get_name());
+			break;
 		case option_type::invalid_e:
 			// never reached
 			throw invalid_type_exception("Option '" + opt.get_name() + "' - invalid option type");
@@ -143,6 +151,14 @@ namespace inicpp
 		case option_type::unsigned_e:
 			opt.set_list<unsigned_ini_t>(parse_typed_option_items<unsigned_ini_t>(
 				opt.get_list<string_ini_t>(), string_utils::parse_string<unsigned_ini_t>, opt.get_name()));
+			break;
+		case option_type::date_e:
+			opt.set_list<date_ini_t>(parse_typed_option_items<date_ini_t>(
+				opt.get_list<string_ini_t>(), string_utils::parse_string<date_ini_t>, opt.get_name()));
+			break;
+		case option_type::locale_e:
+			opt.set_list<locale_ini_t>(parse_typed_option_items<locale_ini_t>(
+				opt.get_list<string_ini_t>(), string_utils::parse_string<locale_ini_t>, opt.get_name()));
 			break;
 		case option_type::invalid_e:
 			// never reached

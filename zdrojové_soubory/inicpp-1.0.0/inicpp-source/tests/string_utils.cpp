@@ -231,3 +231,25 @@ TEST(string_utils, parse_boolean_value)
 
 	EXPECT_THROW(string_utils::parse_string<boolean_ini_t>("random", ""), invalid_type_exception);
 }
+
+TEST(string_utils, parse_date_value)
+{
+	// TBD
+
+	EXPECT_THROW(string_utils::parse_string<boolean_ini_t>("random", ""), invalid_type_exception);
+}
+
+TEST(string_utils, parse_locale_value)
+{
+	EXPECT_EQ(string_utils::parse_string<locale_ini_t>("en", "").name(), "en");
+	EXPECT_EQ(string_utils::parse_string<locale_ini_t>("de_DE", "").name(), "de_DE");
+	EXPECT_EQ(string_utils::parse_string<locale_ini_t>("_GB", "").name(), "_GB");
+	EXPECT_EQ(string_utils::parse_string<locale_ini_t>("en_US_WIN", "").name(), "en_US_WIN");
+	EXPECT_EQ(string_utils::parse_string<locale_ini_t>("de__POSIX", "").name(), "de__POSIX");
+	EXPECT_EQ(string_utils::parse_string<locale_ini_t>("zh_CN_#Hans", "").name(), "zh_CN_#Hans");
+	EXPECT_EQ(string_utils::parse_string<locale_ini_t>("zh_TW_#Hant-x-java", "").name(), "zh_TW_#Hant-x-java");
+	EXPECT_EQ(string_utils::parse_string<locale_ini_t>("th_TH_TH_#u-nu-thai", "").name(), "th_TH_TH_#u-nu-thai");
+	EXPECT_EQ(string_utils::parse_string<locale_ini_t>("cs_CZ.UTF-8", "").name(), "cs_CZ.UTF-8");
+
+	EXPECT_THROW(string_utils::parse_string<locale_ini_t>("random", ""), invalid_type_exception);
+}

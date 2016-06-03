@@ -1,4 +1,5 @@
 #include "option.h"
+#include <iomanip>
 
 namespace inicpp
 {
@@ -21,6 +22,8 @@ namespace inicpp
 				case option_type::signed_e: copy_option<signed_ini_t>(value); break;
 				case option_type::string_e: copy_option<string_ini_t>(value); break;
 				case option_type::unsigned_e: copy_option<unsigned_ini_t>(value); break;
+				case option_type::date_e: copy_option<date_ini_t>(value); break;
+				case option_type::locale_e: copy_option<locale_ini_t>(value); break;
 				case option_type::invalid_e:
 					// never reached
 					throw invalid_type_exception("Invalid option type");
@@ -128,6 +131,16 @@ namespace inicpp
 						return false;
 					}
 					break;
+				case option_type::date_e:
+					if (!compare_option<date_ini_t>(values_[i], other.values_[i])) {
+						return false;
+					}
+					break;
+				case option_type::locale_e:
+					if (!compare_option<locale_ini_t>(values_[i], other.values_[i])) {
+						return false;
+					}
+					break;
 				default: throw invalid_type_exception("Invalid option type"); break;
 				}
 			}
@@ -201,6 +214,23 @@ namespace inicpp
 		return *this;
 	}
 
+	option &option::operator=(date_ini_t arg)
+	{
+		values_.clear();
+		type_ = option_type::date_e;
+		add_to_list<date_ini_t>(arg);
+		return *this;
+	}
+
+	option &option::operator=(locale_ini_t arg)
+	{
+		values_.clear();
+		type_ = option_type::locale_e;
+		add_to_list<locale_ini_t>(arg);
+		return *this;
+	}
+
+
 	// ----- Write functions -----
 
 
@@ -268,6 +298,20 @@ namespace inicpp
 			os << "," << escape_option_value(*it);
 		}
 	}
+	void write_date_option(std::vector<date_ini_t> values, std::ostream &os)
+	{
+		os << std::put_time(&values[0].gmt(), date_ini_t::DATE_FORMAT_STRING);
+		for (auto it = values.begin() + 1; it != values.end(); ++it) {
+			os << "," << std::put_time(&it->gmt(), date_ini_t::DATE_FORMAT_STRING);
+		}
+	}
+	void write_locale_option(std::vector<locale_ini_t> values, std::ostream &os)
+	{
+		os << escape_option_value(values[0]);
+		for (auto it = values.begin() + 1; it != values.end(); ++it) {
+			os << "," << escape_option_value(*it);
+		}
+	}
 
 	std::ostream &operator<<(std::ostream &os, const option &opt)
 	{
@@ -279,6 +323,8 @@ namespace inicpp
 		case option_type::signed_e: write_signed_option(opt.get_list<signed_ini_t>(), os); break;
 		case option_type::string_e: write_string_option(opt.get_list<string_ini_t>(), os); break;
 		case option_type::unsigned_e: write_unsigned_option(opt.get_list<unsigned_ini_t>(), os); break;
+		case option_type::date_e: write_date_option(opt.get_list<date_ini_t>(), os); break;
+		case option_type::locale_e: write_locale_option(opt.get_list<locale_ini_t>(), os); break;
 		case option_type::invalid_e:
 			// never reached
 			throw invalid_type_exception("Invalid option type");

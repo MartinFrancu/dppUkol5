@@ -2,6 +2,7 @@
 #include "exception.h"
 #include <algorithm>
 #include <string>
+#include <iomanip>
 
 namespace inicpp
 {
@@ -83,11 +84,13 @@ namespace inicpp
 		}
 
 
-		template <> string_ini_t parse_string<string_ini_t>(const std::string &value, const std::string &)
+		template <>
+		string_ini_t parse_string<string_ini_t>(const std::string &value, const std::string &)
 		{
 			return value;
 		}
-		template <> boolean_ini_t parse_string<boolean_ini_t>(const std::string &value, const std::string &option_name)
+		template <>
+		boolean_ini_t parse_string<boolean_ini_t>(const std::string &value, const std::string &option_name)
 		{
 			if (value == "0" || value == "f" || value == "n" || value == "off" || value == "no" ||
 				value == "disabled") {
@@ -101,12 +104,14 @@ namespace inicpp
 			}
 		}
 
-		template <> enum_ini_t parse_string<enum_ini_t>(const std::string &value, const std::string &)
+		template <>
+		enum_ini_t parse_string<enum_ini_t>(const std::string &value, const std::string &)
 		{
 			return enum_ini_t(value);
 		}
 
-		template <> float_ini_t parse_string<float_ini_t>(const std::string &value, const std::string &option_name)
+		template <>
+		float_ini_t parse_string<float_ini_t>(const std::string &value, const std::string &option_name)
 		{
 			try {
 				return std::stod(value);
@@ -115,7 +120,8 @@ namespace inicpp
 			}
 		}
 
-		template <> signed_ini_t parse_string<signed_ini_t>(const std::string &value, const std::string &option_name)
+		template <>
+		signed_ini_t parse_string<signed_ini_t>(const std::string &value, const std::string &option_name)
 		{
 			try {
 				std::string binary_prefix = "0b";
@@ -143,6 +149,29 @@ namespace inicpp
 					// decimal and hexadecimal number can handle stoull itself
 					return std::stoull(value, 0, 0);
 				}
+			} catch (std::exception &e) {
+				throw invalid_type_exception("Option '" + option_name + "' parsing failed: " + e.what());
+			}
+		}
+
+		template <>
+		date_ini_t parse_string<date_ini_t>(const std::string &value, const std::string &option_name)
+		{
+			std::istringstream stream(value);
+			tm time_data;
+			stream >> std::get_time(&time_data, date_ini_t::DATE_FORMAT_STRING);
+			if (!stream.fail()) {
+				return date_ini_t(time_data);
+			} else {
+				throw invalid_type_exception("Option '" + option_name + "' parsing failed: the input value was not in a proper format");
+			}
+		}
+
+		template <>
+		locale_ini_t parse_string<locale_ini_t>(const std::string &value, const std::string &option_name)
+		{
+			try {
+				return locale_ini_t(value);
 			} catch (std::exception &e) {
 				throw invalid_type_exception("Option '" + option_name + "' parsing failed: " + e.what());
 			}

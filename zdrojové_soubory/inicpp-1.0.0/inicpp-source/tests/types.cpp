@@ -15,5 +15,7 @@ TEST(types, get_option_enum_type)
 	EXPECT_EQ(get_option_enum_type<signed_ini_t>(), option_type::signed_e);
 	EXPECT_EQ(get_option_enum_type<unsigned_ini_t>(), option_type::unsigned_e);
 	EXPECT_EQ(get_option_enum_type<string_ini_t>(), option_type::string_e);
+	EXPECT_EQ(get_option_enum_type<date_ini_t>(), option_type::date_e);
+	EXPECT_EQ(get_option_enum_type<locale_ini_t>(), option_type::locale_e);
 	EXPECT_EQ(get_option_enum_type<const char *>(), option_type::invalid_e);
 }
