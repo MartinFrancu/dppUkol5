@@ -70,6 +70,15 @@ namespace inicpp
 		return result;
 	}
 
+	std::string parser::extract_file_name_from_include(const std::string &str)
+	{
+		std::string result = str.substr(7);
+		result = string_utils::left_trim(result);
+		result = string_utils::right_trim(result);
+
+		return result; // remove "#include "
+	}
+
 	std::string parser::delete_comment(const std::string &str)
 	{
 		return str.substr(0, find_first_nonescaped(str, ';'));
@@ -259,6 +268,122 @@ namespace inicpp
 		return cfg;
 	}
 
+	config parser::internal_load(std::unique_ptr<std::istream> initial_stream, const std::string & initial_stream_name,
+		resource_fetcher * resources)
+	{
+		using namespace string_utils;
+
+		config cfg;
+		std::shared_ptr<section> last_section = nullptr;
+		std::string line;
+		size_t line_number = 0;
+
+		resource_stack res_stack = resource_stack();
+		res_stack.push_back(std::move(initial_stream));
+
+		std::vector<std::string> used_resources = std::vector<std::string>(); // to prevent from cycling
+		used_resources.push_back(initial_stream_name);
+
+		while (res_stack.get_line(line)) {
+			line_number++;
+
+			// if there was comment delete it
+			line = delete_comment(line);
+			line = left_trim(line);
+
+			if (line.empty()) { // empty line
+				continue;
+			}
+			else if (starts_with(line, "#include ")) {
+				// we need to include new file:
+				line = right_trim(line);
+				// if there is cached section, save it
+				if (last_section != nullptr) {
+					cfg.add_section(*last_section);
+					last_section = nullptr;
+				}
+				// now open new resource...
+				std::string resource_name = extract_file_name_from_include(line);
+				// check if it is contained in used resources:
+				if (std::find(used_resources.begin(), used_resources.end(), resource_name)
+					== used_resources.end())
+				{
+					res_stack.push_back(resources->get_resource(resource_name));
+					used_resources.push_back(resource_name);
+				} // else we dont need to do anything
+
+			}
+			else if (starts_with(line, "[")) { // start of section
+				line = right_trim(line);
+				if (ends_with(line, "]")) {
+					// empty section name cannot be present
+					if (line.length() == 2) {
+						throw parser_exception("Section name cannot be empty on line " + std::to_string(line_number));
+					}
+
+					// if there is cached section, save it
+					if (last_section != nullptr) {
+						cfg.add_section(*last_section);
+					}
+
+					// extract name and validate it and finally create section object
+					std::string sect_name = unescape(line.substr(1, line.length() - 2));
+					validate_identifier(sect_name, line_number);
+					last_section = std::make_shared<section>(sect_name);
+				}
+				else {
+					throw parser_exception("Section not ended on line " + std::to_string(line_number));
+				}
+			}
+			else { // option
+				size_t opt_delim = find_first_nonescaped(line, '=');
+				if (opt_delim == std::string::npos) {
+					throw parser_exception("Unknown element option expected on line " + std::to_string(line_number));
+				}
+
+				// if there is no opened section, option has no parent section
+				if (last_section == nullptr) {
+					throw parser_exception("Option not in section on line " + std::to_string(line_number));
+				}
+
+				// equals character was right at the end of line, should not be
+				if ((opt_delim + 1) == line.length()) {
+					throw parser_exception("Option value cannot be empty on line " + std::to_string(line_number));
+				}
+
+				// retrieve option name and value from line
+				std::string option_name = unescape(trim(line.substr(0, opt_delim)));
+				std::string option_val = line.substr(opt_delim + 1);
+
+				// validate option name
+				validate_identifier(option_name, line_number);
+
+				if (option_name.empty()) {
+					throw parser_exception("Option name cannot be empty on line " + std::to_string(line_number));
+				}
+
+				auto option_val_list = parse_option_list(option_val);
+				if (option_val_list.empty()) {
+					throw parser_exception("Option value cannot be empty on line " + std::to_string(line_number));
+				}
+
+				handle_links(cfg, *last_section, option_val_list, line_number);
+
+				// and finally create option and store it in current section
+				option opt(option_name, option_val_list);
+				last_section->add_option(opt);
+			}
+		}
+		// if there is cached section we have to add it to created config too
+		if (last_section != nullptr) {
+			cfg.add_section(*last_section);
+		}
+
+		resources->release_all();
+		res_stack.release_all();
+
+		return cfg;
+	}
 	void parser::internal_save(const config &cfg, const schema &schm, std::ostream &str)
 	{
 		for (auto &sect : cfg) {
@@ -384,5 +509,49 @@ namespace inicpp
 	void parser::save(const schema &schm, std::ostream &str)
 	{
 		str << schm;
+	}
+
+	std::unique_ptr<std::istream> parser::string_stream_fetcher::get_resource(const std::string &string_name)
+	{
+		for (auto i = resources_.begin(); i < resources_.end(); i++)
+		{
+			if (i->first.compare(string_name) == 0)
+			{
+				std::unique_ptr<std::istream> returning_istream(i->second.get());
+				resources_.erase(i); // remove this stream from vector...
+				return returning_istream;
+			}
+		}
+		// if I got here what sould I do ?? that means there is not such resource..
+		std::unique_ptr<std::istream> nonOpenFile(new std::ifstream());
+		return nonOpenFile;
+	}
+
+	bool parser::resource_stack::get_line(std::string & out_string)
+	{
+		while (istreams_.size() > 0)
+		{// while we have istream, lets 
+			if (std::getline(*istreams_.back(), out_string))
+			{// we were able to load string from this istream:
+				return true;
+			}
+			else // the last istream is empty: remove it
+			{
+				istreams_.back().release();
+				istreams_.pop_back();
+			}
+		}
+		// if I got here, all streams are depleted...
+		out_string.swap(std::string("")); // return dummy output
+		return false; // false beacuse we exhausted all the sources.
+	}
+	void parser::resource_stack::release_all()
+	{
+		for (auto i = istreams_.begin();
+		i < istreams_.end(); i++)
+		{
+			i->release();
+		}
+		istreams_.clear();
 	}
 }
