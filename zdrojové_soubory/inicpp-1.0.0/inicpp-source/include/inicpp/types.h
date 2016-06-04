@@ -88,17 +88,17 @@ namespace inicpp
 			throw std::runtime_error("Enum type cannot be converted to double");
 		}
 		/** Equality operator */
-		bool operator==(const internal_enum_type &other)
+		bool operator==(const internal_enum_type &other) const
 		{
 			return data_ == other.data_;
 		}
 		/** Inequality operator */
-		bool operator!=(const internal_enum_type &other)
+		bool operator!=(const internal_enum_type &other) const
 		{
 			return !(*this == other);
 		}
 		/** Comparation less operator */
-		bool operator<(const internal_enum_type &other)
+		bool operator<(const internal_enum_type &other) const
 		{
 			return data_ < other.data_;
 		}
@@ -196,17 +196,17 @@ namespace inicpp
 			throw std::runtime_error("Date type cannot be converted to double");
 		}
 		/** Equality operator */
-		bool operator==(const internal_date_type &other)
+		bool operator==(const internal_date_type &other) const
 		{
 			return data_ == other.data_;
 		}
 		/** Inequality operator */
-		bool operator!=(const internal_date_type &other)
+		bool operator!=(const internal_date_type &other) const
 		{
 			return !(*this == other);
 		}
 		/** Comparation less operator */
-		bool operator<(const internal_date_type &other)
+		bool operator<(const internal_date_type &other) const
 		{
 			return data_ < other.data_;
 		}
@@ -297,17 +297,17 @@ namespace inicpp
 			throw std::runtime_error("Locale type cannot be converted to double");
 		}
 		/** Equality operator */
-		bool operator==(const internal_locale_type &other)
+		bool operator==(const internal_locale_type &other) const
 		{
 			return data_ == other.data_;
 		}
 		/** Inequality operator */
-		bool operator!=(const internal_locale_type &other)
+		bool operator!=(const internal_locale_type &other) const
 		{
 			return !(*this == other);
 		}
 		/** Comparation less operator */
-		bool operator<(const internal_locale_type &other)
+		bool operator<(const internal_locale_type &other) const
 		{
 			return std::string(data_.c_str()) < other.data_.c_str();
 		}
