@@ -22,6 +22,68 @@ namespace inicpp
 	 */
 	class INICPP_API parser
 	{
+	public:
+		/**
+		* This is a common ancestor to classes file_fetcher and string_strema_fetcher.
+		* Hese classes allows to access to ifstream or stringstream uniformly.
+		*/
+		class resource_fetcher
+		{
+		public:
+			/**
+			* This method returns a resource corresponding to given name.
+			* @param name resource name
+			*/
+			virtual std::unique_ptr<std::istream> get_resource(const std::string & name);
+			/**
+			* This method release all non-used resources.
+			*/
+			virtual void release_all();
+		};
+		/**
+		* The following classes are enabling us to work with files and prepared string_streams alike.
+		*/
+		class file_fetcher : public resource_fetcher
+		{
+		public:
+			/**
+			* Returns istream corresponding to file with given name.
+			* @param file_name name of fetched file.
+			*/
+			virtual std::unique_ptr<std::istream> get_resource(const std::string &file_name)
+			{
+				std::unique_ptr<std::istream> iStream(new std::ifstream(file_name));
+				return iStream;
+			}
+			/**
+			* Files are opened on demand, therefore this method dont have any significance.
+			*/
+			virtual void release_all() {}
+		};
+		/**
+		* This class implements methods of resource_fetcher for organisation of input string streams.
+		*/
+		class string_stream_fetcher : public resource_fetcher
+		{
+		private:
+			std::vector< std::pair< std::string, std::unique_ptr< std::stringstream > > > resources_;
+		public:
+			virtual std::unique_ptr<std::istream> get_resource(const std::string &string_name);
+
+			void insert_stream(std::string name, std::unique_ptr <std::stringstream> stream)
+			{
+				resources_.push_back(std::pair< std::string, std::unique_ptr < std::stringstream > >(name, std::move(stream)));
+			}
+			virtual void release_all()
+			{
+				for (auto i = resources_.begin(); i < resources_.end(); i++)
+				{
+					i->second.release();
+				}
+				resources_.clear();
+			}
+
+		};
 	private:
 		/**
 		 * Finds first nonescaped character given as parameter
@@ -45,62 +107,8 @@ namespace inicpp
 			size_t line_number);
 		static void validate_identifier(const std::string &str, size_t line_number);
 
-		static config internal_load(std::istream &str);
+		//static config internal_load(std::istream &str);
 		static void internal_save(const config &cfg, const schema &schm, std::ostream &str);
-	private:
-		/**
-		* This is a common ancestor to classes file_fetcher and string_strema_fetcher.
-		* Hese classes allows to access to ifstream or stringstream uniformly.
-		*/
-		class resource_fetcher
-		{
-		public:
-			/**
-			* This method returns a resource corresponding to given name.
-			*/
-			virtual std::unique_ptr<std::istream> get_resource(const std::string & name);
-			/**
-			* This method is used to release all resources.
-			*/
-			virtual void release_all();
-		};
-		/**
-		* The following classes are enabling us to work with files and prepared string_streams alike.
-		*/
-		class file_fetcher : public resource_fetcher
-		{
-		public:
-			virtual std::unique_ptr<std::istream> get_resource(const std::string &file_name)
-			{
-				std::unique_ptr<std::istream> iStream(new std::ifstream(file_name));
-				return iStream;
-			}
-			virtual void release_all() {}
-		};
-		/**
-		* This class implements methods of resource_fetcher
-		*/
-		class string_stream_fetcher : public resource_fetcher
-		{
-		private:
-			std::vector< std::pair< std::string, std::unique_ptr< std::stringstream > > > resources_;
-		public:
-			virtual std::unique_ptr<std::istream> get_resource(const std::string &string_name);
-
-			void insert_stream(std::string name, std::unique_ptr <std::stringstream> stream)
-			{
-				resources_.push_back(std::pair< std::string, std::unique_ptr < std::stringstream > >(name, std::move(stream)));
-			}
-			virtual void release_all()
-			{
-				for (auto i = resources_.begin(); i < resources_.end(); i++)
-				{
-					i->second.release();
-				}
-				resources_.clear();
-			}
-
-		};
 
 		class resource_stack
 		{
@@ -115,10 +123,13 @@ namespace inicpp
 			void release_all();
 
 
-		};
+		};	
+		/**
+		* This internal_load which allows the #include functionality.
+		*/
 		static config parser::internal_load(std::unique_ptr<std::istream> initial_stream,
 			const std::string & initial_stream_name,
-			resource_fetcher * resources);
+			std::unique_ptr<resource_fetcher> resources = std::unique_ptr<resource_fetcher> (new file_fetcher()));
 	public:
 		/**
 		 * Deleted default constructor.
@@ -196,6 +207,17 @@ namespace inicpp
 		 * @throws validation_exception if configuration does not comply schema
 		 */
 		static config load_file(const std::string &file, const schema &schm, schema_mode mode);
+		/**
+		* Load in configuaration from sources stored in resource fetcher.
+		* @param init_name name of initial resource
+		* @param schm validation schema
+		* @param mode validation mode
+		* @param res_fetcher resource fetcher to be used
+		*/
+		static config parser::load_from_fetcher(const std::string &init_name,
+			const schema &schm, schema_mode mode,
+			std::unique_ptr<resource_fetcher> res_fetcher);
+
 
 		/**
 		 * Save given configuration to file.
