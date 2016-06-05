@@ -1,5 +1,4 @@
 INICPP - Review implementace
-
 ============================
 
 Návrh, až na detaily, splňuje požadovanou funkcionalitu a kód dodržuje vybrané 
@@ -8,7 +7,6 @@ Celkově ale návrh považujeme za kvalitní a dobře implementovaný.
 
 
 Formální požadavky
-
 ------------------
 
 Autoři striktně dodržovali zvolenou konvenci formátování kódu. Zvolené názvy 
@@ -54,7 +52,6 @@ konfigurace, se provádí pomocí metody třídy "config" a pomocných tříd "s
 
 
 Doprovodný text
-
 ---------------
 
 Zdůvodnění návrhu bylo dostačující. Z hlediska uživatele by se dalo vytknout
