@@ -2,6 +2,40 @@
 
 namespace inicpp
 {
+	stream_resource::stream_resource(std::istream &stream) : stream_(stream)
+	{
+	}
+
+	bool stream_resource::get_line(std::string &out_string)
+	{
+		return static_cast<bool>(std::getline(stream_, out_string));
+	}
+
+	file_resource_stack::file_resource_stack(const std::string& file_name)
+		: resource_stack<std::ifstream>(get_file_stream(file_name))
+	{
+	}
+
+	std::ifstream file_resource_stack::get_file_stream(const std::string &file_name)
+	{
+		std::ifstream result(file_name);
+		if (result.fail()) {
+			throw parser_exception("File reading error");
+		}
+		return result;
+	}
+
+	std::ifstream file_resource_stack::get_resource(const std::string &file_name)
+	{
+		return get_file_stream(file_name);
+	}
+
+	bool file_resource_stack::get_line(std::ifstream &resource, std::string &out_string) const
+	{
+		return static_cast<bool>(std::getline(resource, out_string));
+	}
+
+
 	size_t parser::find_first_nonescaped(const std::string &str, char ch)
 	{
 		size_t result = std::string::npos;
@@ -68,17 +102,6 @@ namespace inicpp
 		}
 
 		return result;
-	}
-
-	std::string parser::extract_file_name_from_include(const std::string &str)
-	{
-		using namespace string_utils;
-
-		std::string result = str.substr(7);
-		result = left_trim(result);
-		result = right_trim(result);
-
-		return result; // remove "#include "
 	}
 
 	std::string parser::delete_comment(const std::string &str)
@@ -271,130 +294,6 @@ namespace inicpp
 		return cfg;
 	}
 	
-	/*
-	config parser::internal_load(std::unique_ptr<std::istream> initial_stream, 
-		const std::string & initial_stream_name,
-		std::unique_ptr<resource_fetcher>  resources = std::unique_ptr<resource_fetcher>(new file_fetcher()))
-	{
-		using namespace string_utils;
-
-		config cfg;
-		std::shared_ptr<section> last_section = nullptr;
-		std::string line;
-		size_t line_number = 0;
-
-		resource_stack res_stack = resource_stack();
-		res_stack.push_back(std::move(initial_stream));
-
-		std::vector<std::string> used_resources = std::vector<std::string>(); // to prevent from cycling
-		used_resources.push_back(initial_stream_name);
-
-		while (res_stack.get_line(line)) {
-			line_number++;
-
-			// if there was comment delete it
-			line = delete_comment(line);
-			line = left_trim(line);
-
-			if (line.empty()) { // empty line
-				continue;
-			}
-			else if (starts_with(line, "#include ")) {
-				// we need to include new file:
-				line = right_trim(line);
-				// if there is cached section, save it
-				if (last_section != nullptr) {
-					cfg.add_section(*last_section);
-					last_section = nullptr;
-				}
-				// now open new resource...
-				std::string resource_name = extract_file_name_from_include(line);
-				// check if it is contained in used resources:
-				if (std::find(used_resources.begin(), used_resources.end(), resource_name)
-					== used_resources.end())
-				{
-					auto new_resource = resources->get_resource(resource_name);
-					if (new_resource->fail()) {
-						throw parser_exception("Resource reading error");
-					}
-					res_stack.push_back( std::move(new_resource) );
-					used_resources.push_back(resource_name);				
-				} // else we dont need to do anything
-
-			}
-			else if (starts_with(line, "[")) { // start of section
-				line = right_trim(line);
-				if (ends_with(line, "]")) {
-					// empty section name cannot be present
-					if (line.length() == 2) {
-						throw parser_exception("Section name cannot be empty on line " + std::to_string(line_number));
-					}
-
-					// if there is cached section, save it
-					if (last_section != nullptr) {
-						cfg.add_section(*last_section);
-					}
-
-					// extract name and validate it and finally create section object
-					std::string sect_name = unescape(line.substr(1, line.length() - 2));
-					validate_identifier(sect_name, line_number);
-					last_section = std::make_shared<section>(sect_name);
-				}
-				else {
-					throw parser_exception("Section not ended on line " + std::to_string(line_number));
-				}
-			}
-			else { // option
-				size_t opt_delim = find_first_nonescaped(line, '=');
-				if (opt_delim == std::string::npos) {
-					throw parser_exception("Unknown element option expected on line " + std::to_string(line_number));
-				}
-
-				// if there is no opened section, option has no parent section
-				if (last_section == nullptr) {
-					throw parser_exception("Option not in section on line " + std::to_string(line_number));
-				}
-
-				// equals character was right at the end of line, should not be
-				if ((opt_delim + 1) == line.length()) {
-					throw parser_exception("Option value cannot be empty on line " + std::to_string(line_number));
-				}
-
-				// retrieve option name and value from line
-				std::string option_name = unescape(trim(line.substr(0, opt_delim)));
-				std::string option_val = line.substr(opt_delim + 1);
-
-				// validate option name
-				validate_identifier(option_name, line_number);
-
-				if (option_name.empty()) {
-					throw parser_exception("Option name cannot be empty on line " + std::to_string(line_number));
-				}
-
-				auto option_val_list = parse_option_list(option_val);
-				if (option_val_list.empty()) {
-					throw parser_exception("Option value cannot be empty on line " + std::to_string(line_number));
-				}
-
-				handle_links(cfg, *last_section, option_val_list, line_number);
-
-				// and finally create option and store it in current section
-				option opt(option_name, option_val_list);
-				last_section->add_option(opt);
-			}
-		}
-		// if there is cached section we have to add it to created config too
-		if (last_section != nullptr) {
-			cfg.add_section(*last_section);
-		}
-
-		resources->release_all();
-		res_stack.release_all();
-
-		return cfg;
-	}
-	*/
-
 	void parser::internal_save(const config &cfg, const schema &schm, std::ostream &str)
 	{
 		for (auto &sect : cfg) {
@@ -488,23 +387,6 @@ namespace inicpp
 		return load(res, schm, mode);
 	}
 
-
-	/*
-	config parser::load_from_fetcher(const std::string &init_name, const schema &schm, schema_mode mode, 
-			std::unique_ptr<resource_fetcher> res_fetcher)
-	{
-		std::unique_ptr<std::istream> input = res_fetcher->get_resource(init_name);
-		if (input->fail()) {
-			throw parser_exception("File reading error");
-		}
-		std::unique_ptr<resource_fetcher> res_fetcher(new file_fetcher());
-		config cfg = internal_load(std::move(input), init_name, std::move(res_fetcher));
-		cfg.validate(schm, mode);
-		return cfg;
-	}
-	*/
-
-
 	void parser::save(const config &cfg, const std::string &file)
 	{
 		std::ofstream output(file);
@@ -540,50 +422,4 @@ namespace inicpp
 	{
 		str << schm;
 	}
-
-	/*
-	std::unique_ptr<std::istream> parser::string_stream_fetcher::get_resource(const std::string &string_name)
-	{
-		for (auto i = resources_.begin(); i < resources_.end(); i++)
-		{
-			if (i->first.compare(string_name) == 0)
-			{
-				std::unique_ptr<std::istream> returning_istream(i->second.get());
-				resources_.erase(i); // remove this stream from vector...
-				return returning_istream;
-			}
-		}
-		// if I got here what sould I do ?? that means there is not such resource..
-		std::unique_ptr<std::istream> nonOpenFile(new std::ifstream());
-		return nonOpenFile;
-	}
-
-	bool parser::resource_stack::get_line(std::string & out_string)
-	{
-		while (istreams_.size() > 0)
-		{// while we have istream, lets 
-			if (std::getline(*istreams_.back(), out_string))
-			{// we were able to load string from this istream:
-				return true;
-			}
-			else // the last istream is empty: remove it
-			{
-				istreams_.back().release();
-				istreams_.pop_back();
-			}
-		}
-		// if I got here, all streams are depleted...
-		out_string.swap(std::string("")); // return dummy output
-		return false; // false beacuse we exhausted all the sources.
-	}
-	void parser::resource_stack::release_all()
-	{
-		for (auto i = istreams_.begin();
-		i < istreams_.end(); i++)
-		{
-			i->release();
-		}
-		istreams_.clear();
-	}
-	*/
 }

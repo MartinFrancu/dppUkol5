@@ -114,6 +114,7 @@ namespace inicpp
 	class internal_date_type
 	{
 	public:
+		/** Formatting string for std::put_date and std::get_date. */
 		static constexpr char* DATE_FORMAT_STRING = "%Y-%m-%d %H:%M:%S";
 
 		typedef std::chrono::system_clock clock;
@@ -178,10 +179,8 @@ namespace inicpp
 		{
 			return data_;
 		}
-		/**
-		* Retrieves the time data
-		*/
-		const tm& gmt() const
+		/** Retrieves the broken-down time */
+		const tm& as_tm() const
 		{
 			time_t time = clock::to_time_t(data_);
 			return *localtime(&time);
@@ -278,6 +277,7 @@ namespace inicpp
 			data_ = other.data_;
 			return *this;
 		}
+		/** Retrieves the name of the locale. */
 		std::string name() const
 		{
 			return data_.name();

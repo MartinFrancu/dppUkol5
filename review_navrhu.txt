@@ -1,31 +1,34 @@
+INICPP - Review implementace
 
-=INICPP Hodnocení návrhu========================================================
+============================
 
 Návrh, až na detaily, splňuje požadovanou funkcionalitu a kód dodržuje vybrané 
 konvence. Slabinou návrhu se zdá být poněkud těžkopádné přidávání nových typů. 
 Celkově ale návrh považujeme za kvalitní a dobře implementovaný.  
 
 
--Formální požadavky-------------------------------------------------------------
+Formální požadavky
+
+------------------
 
 Autoři striktně dodržovali zvolenou konvenci formátování kódu. Zvolené názvy 
 metod a proměnných jsou dobře popisné. Zanoření bylo uržováno na rozumné úrovni
-maximálně tří bloků. Metody jsou až na vyjímky ("internal_load") velmi krátké 
-což rovněž příspívá k přehlednosti. Komentáře jsou přítomny v téměř každé delší 
-metodě. Cělkově tedy hodnotíme kód jako dobře přehledný. K oštřetní chyb jsou 
-použity vyjímky.  
+maximálně tří zanoření. Metody jsou až na výjimky ("internal_load") velmi 
+krátké což rovněž příspívá k přehlednosti. Komentáře jsou přítomny v téměř
+každé delší metodě. Celkově tedy hodnotíme kód jako dobře přehledný. K ošetřetní
+chyb jsou použity vyjímky.
 
 Funkcionalita knihovny odpovídá zadání. Jediným prohřešením proti zadání, které 
 jsme zaznamenali je rozhodnutí autorů nezachovávat strukturu vstupu. Balíček 
 obsahuje adekvátní dokumentaci a cmake soubory pro build všech částí, podle 
-zadání. Pokrytí  kódu pomocí testů je adekvátní.
+zadání. Pokrytí kódu pomocí testů je adekvátní.
 
 Návrh rozdělil pravomoci do snadno srozumitelných tříd. Třída "parser" se stará 
 o převod dat z textového formátu do strukturovaného formátu. Produktem načtení 
 ".ini" souboru je instance třídy "config". Načtení je možno provádět buď ze 
 souboru nebo z istreamu. 
 
-Ta sdržuje načtené sekce a zpřístupňuje je pomocí operátoru [] podle indexu 
+Ta sdružuje načtené sekce a zpřístupňuje je pomocí operátoru [] podle indexu 
 i podle jména sekce. Tento systém umožňuje pohodlný přístup k sekcím, zároveň 
 však může být dvojí způsob zdrojem nejasnosti. 
 
@@ -50,7 +53,9 @@ konfigurace, se provádí pomocí metody třídy "config" a pomocných tříd "s
 "section_schema" a "option_schema". 
 
 
--Doprovodný text----------------------------------------------------------------
+Doprovodný text
+
+---------------
 
 Zdůvodnění návrhu bylo dostačující. Z hlediska uživatele by se dalo vytknout
 přílišné soustředění se na technické detaily a důvody k volbě jednotlivých 
@@ -63,8 +68,10 @@ kde je potřeba kód knihovny upravit. Z tohoto důvodu nebylo zdůvodnění ná
 velkým pomocníkem při implementace rozšíření. Dobře však dokumentuje proces 
 vzniku návrhu. 
 
-Dokumentace je dostačující, ale v některých případech možná příliš stručná. 
-(Například třída "internal_enum_type".) 
+Dokumentace je dostačující, ale v některých případech možná příliš stručná.
+Např. ze samotné dokumentace nemusí být zřejmé, k jakému účelu slouží třída
+"internal_enum_type" -- tedy že se jedná o alias k std::string pro odlišení
+stringu a enumů v rámci šablon.
 
 Příležitostně se dá v dokumentaci objevit nějaká nepřesnost, například 
 konstruktor třídy "option" beroucí jako parametry dva stringy. V dokumentaci je
@@ -72,31 +79,45 @@ popsán jako konstruktor pro volby s určeným typem. Podle implementace je vša
 vytvořena instance třídy "option" nastavená na hodnotu typu "string". 
 
 
--Rozšíření----------------------------------------------------------------------
+Rozšíření
+---------
 
-Přidání funkcionality "#include" do vstupního formátu bylo přeměřeně pracné - 
-bylo potřeba změnit pouze metodu "parser::load_internal". (Ačkoli jsme pro 
-lepší testování zvolili trochu složitější návrh, ktery vyžadoval více změn.) 
-V tomto ohledu je tedy původní návrh přiměřeně snadno rozšířitelný. Nové 
-rozšíření umožňuje načítat nejen z více souborů ale i z více pojmenovaných 
-istreamů.
+Přidání funkcionality "#include" do vstupního formátu bylo přiměřeně pracné --
+dle našeho názoru to není něco, co by mohl programátor očekávat jako
+potenciální rozšíření (oproti dalším typům), tedy přístup autorů byl správný.
+I tak hodnotím kladně, že pro implementaci by bylo potřeba změnit pouze metodu
+"parser::load_internal" (ačkoli jsme pro lepší testování zvolili trochu
+složitější návrh, ktery vyžadoval více změn.) V tomto ohledu je tedy původní
+návrh přiměřeně snadno rozšířitelný. V rámci našeho rozšíření jsme vytvořili
+třídu "resource", která slouží jako náhrada za stream ze které lze pouze číst
+po řádkách, a jehož různé implementace zprostředkovávají automatické
+includování nejen z více souborů ale i z více pojmenovaných istreamů, což jsme
+využili při psaní testů. Existující metody pro čtení z pojmenovaného souboru
+jsou převedeny na "file_resource_stack" a tedy přímo zprostředkovávají toto
+rozšíření.
 
 Rozšíření knihovny o nový datový typ nebylo moc příjemné. Autoří zvolili řešení 
 pomocí výčtového typu obsahující všechny podporované formáty. Vlastní 
 implementace různých chování potom byla řešena pomocí větvení "switch" podle 
 výčtového typu formátů dat. Nevýhodou tohoto přístupu je roztroušení kódu, který
 se vztahuje k jednotlivým datovým typům do různých míst. Je potřeba upravit 
-nejen třídu "option_type", ale i metody tříd "option" a "option_schema". (Naproti
-tomu privátní třída "convertor" úpravu nepotřebuje, což není na první pohled 
-zřejmé.)
+nejen třídu "option_type", ale i metody tříd "option" a "option_schema". Některé
+části kódu očekávají od implementovaných určitou podporu (konkrétně privátní
+třída "convertor" konverzní operátory, na jiných místech operator==
+a operator<). Z toho důvodu bylo zapotřebí zabalit časový typ ("time_point"
+z <chrono>) a typ "locale" (z <locale>) do nových typů ("internal_date_type"
+a "internal_locale_type", aliasované na "date_ini_t" a "locale_ini_t"), což
+přináší potenciální problémy s využitím, jelikož původní typy nejsou přímo
+k dispozici.
 
-Autor následného rozšíření se tedy musí seznámit s celým projektem, aby upravil 
-všechny potřebné pasáže. Rozšíření v tomto smyslu bylo naznačeno již v původním 
-zadání, proto považovažujeme prezentované řešení v tomto ohledu za spíše špatně 
-rozšiřitelné. 
+Autor následného rozšíření o další typ se tedy musí seznámit s celým projektem,
+aby upravil všechny potřebné pasáže. Rozšíření v tomto smyslu bylo naznačeno
+již v původním zadání, proto považovažujeme prezentované řešení v tomto ohledu
+za spíše špatně rozšiřitelné. 
 
   
--Unit testy---------------------------------------------------------------------
+Unit testy
+----------
 
 Unit testy projektu jsou vytvořeny pomocí v frameworku Google Test. Testy jsou 
 rozděleny podle tříd jejichž funkčnost prověřují. Testování se zaměřuje na 
@@ -108,9 +129,8 @@ testováno hned několik tříd najednou. To však vyplývá z povahy problému:
 testovat třídu "config" bez ostatních tříd, které spravuje. Z tohot důvodu to
 nepovažujeme za problém.
 
-V některých případech byly testy snad až příliš podrobné. Například testy na 
-defaultní vyjímek se zdají být téměř paranoidní (vyjímky jsou vytvořeny 
-konstruktorem a potom je testováno, zda mají odpovídající popis). 
-
 Pokrytí kódu testy je velmi dobré. Testy jsou doplněny komentářem a jejich 
 průběh je dobře srozumitelný. 
+
+Naše rozšíření jsme také pokryli testy, konkrétně správné includování několika
+souborů a správné chování různých části u typů date_ini_t a locale_ini_t.

@@ -135,12 +135,16 @@ TEST(parser, store_config)
 
 TEST(parser, including_others)
 {
-	EXPECT_THROW(parser::load_file("nonexisting_file.txt"), parser_exception);
+	/*
+	 * The following tests a similar situation to test load_config, only
+	 * with the source file being separated into multiple files. The same
+	 * file (including only an option) is also included two times.
+	 */
 
-	parser::stream_resource_stack<std::stringstream, std::string> inputs("config.ini", {
+	stream_resource_stack<std::stringstream, std::string> inputs("config.ini", {
 		{ "config.ini",
 			"#include first.ini\n"
-			"   #include second.ini"
+			"   #include second.ini" // test of indented #include
 		},
 		{ "first.ini",
 			"[section]\n"
@@ -152,7 +156,7 @@ TEST(parser, including_others)
 			"link = ${section#opt}\n"
 			"#include inner.ini"
 		},
-		{ "inner.ini",
+		{ "inner.ini", // included for [section] and [section2::a]
 			"opt2 = val2, val3, val4"
 		}
 	});
@@ -172,4 +176,6 @@ TEST(parser, including_others)
 	EXPECT_EQ(loaded_config[0][1].get_list<string_ini_t>(), expected_list);
 	EXPECT_EQ(loaded_config[1][0].get<string_ini_t>(), "val");
 	EXPECT_EQ(loaded_config[1][1].get_list<string_ini_t>(), expected_list);
+
+	// Testing schema validation again is not necessary.
 }
