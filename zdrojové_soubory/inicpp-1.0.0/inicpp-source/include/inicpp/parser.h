@@ -4,9 +4,9 @@
 #include <fstream>
 #include <iostream>
 #include <regex>
-#include <regex>
 #include <sstream>
 #include <string>
+#include <stack>
 
 #include "config.h"
 #include "dll.h"
@@ -23,66 +23,203 @@ namespace inicpp
 	class INICPP_API parser
 	{
 	public:
+
+
 		/**
 		* This is a common ancestor to classes file_fetcher and string_strema_fetcher.
 		* Hese classes allows to access to ifstream or stringstream uniformly.
 		*/
-		class resource_fetcher
+		class resource
 		{
 		public:
-			/**
-			* This method returns a resource corresponding to given name.
-			* @param name resource name
-			*/
-			virtual std::unique_ptr<std::istream> get_resource(const std::string & name);
-			/**
-			* This method release all non-used resources.
-			*/
-			virtual void release_all();
+			virtual ~resource() {};
+
+			virtual bool get_line(std::string &out_string) = 0;
 		};
+
+		class stream_resource : public resource
+		{
+		private:
+			std::istream &stream_;
+		public:
+			stream_resource(std::istream &stream) : stream_(stream) {}
+			virtual ~stream_resource() {};
+
+			virtual bool get_line(std::string &out_string)
+			{
+				return static_cast<bool>(std::getline(stream_, out_string));
+			}
+		};
+
+		template<typename ResourceType>
+		class resource_stack : public resource
+		{
+		private:
+			std::stack<ResourceType> stack_;
+		protected:
+			virtual ResourceType get_resource(const std::string &name) = 0;
+			virtual bool get_line(ResourceType &resource, std::string &out_string) const = 0;
+		public:
+			resource_stack() { }
+			resource_stack(const ResourceType& initial_resource)
+			{
+				stack_.push(initial_resource);
+			}
+			resource_stack(ResourceType&& initial_resource)
+			{
+				stack_.push(std::move(initial_resource));
+			}
+			virtual ~resource_stack() {};
+
+			void initialize(const ResourceType& initial_resource)
+			{
+				stack_.push(initial_resource);
+			}
+			void initialize(ResourceType&& initial_resource)
+			{
+				stack_.push(std::move(initial_resource));
+			}
+			void initialize(std::string &name)
+			{
+				stack_.clear();
+				stack_.push(get_resource(name));
+			}
+
+			virtual bool get_line(std::string &out_string)
+			{
+				using namespace string_utils;
+
+				// repeat until there is a regular line, end of stack or exception
+				do {
+					do {
+						// check whether we run out of resources
+						if (stack_.empty()) {
+							return false;
+						}
+
+						// try to read line from the resource
+						if (get_line(stack_.top(), out_string)) {
+							break;
+						}
+
+						// no more lines in the current resource, get next
+						stack_.pop();
+					} while (true);
+
+					// ignore whitespaces at the beginning
+					std::string line = left_trim(out_string);
+					if (starts_with(line, "#include")) {
+						std::string resource_name = trim(line.substr(8)); // remove "#include "
+
+						// retrieve the new current resource
+						stack_.push(get_resource(resource_name));
+					} else {
+						break;
+					}
+				} while (true);
+
+				return true;
+			}
+		};
+
 		/**
 		* The following classes are enabling us to work with files and prepared string_streams alike.
 		*/
-		class file_fetcher : public resource_fetcher
+		class file_resource_stack : public resource_stack<std::ifstream>
 		{
-		public:
+		private:
+			static std::ifstream get_file_stream(const std::string &file_name)
+			{
+				std::ifstream result(file_name);
+				if (result.fail()) {
+					throw parser_exception("File reading error");
+				}
+				return result;
+			}
+		protected:
 			/**
 			* Returns istream corresponding to file with given name.
 			* @param file_name name of fetched file.
 			*/
-			virtual std::unique_ptr<std::istream> get_resource(const std::string &file_name)
+			virtual std::ifstream get_resource(const std::string &file_name)
 			{
-				std::unique_ptr<std::istream> iStream(new std::ifstream(file_name));
-				return iStream;
+				return get_file_stream(file_name);
 			}
-			/**
-			* Files are opened on demand, therefore this method dont have any significance.
-			*/
-			virtual void release_all() {}
+
+			virtual bool get_line(std::ifstream &resource, std::string &out_string) const
+			{
+				return static_cast<bool>(std::getline(resource, out_string));
+			}
+		public:
+			file_resource_stack(const std::string& file_name) : resource_stack<std::ifstream>(get_file_stream(file_name)) {}
 		};
+
+		template<typename StreamType, typename StorageType>
+		class stream_extractor
+		{
+		public:
+			static StreamType get_stream_from_map(std::map<std::string, StorageType> &streams, const std::string &name)
+			{
+				auto stream_it = streams.find(name);
+				if (stream_it == streams.end()) {
+					throw parser_exception("");
+				}
+
+				return StreamType(stream_it->second);
+			}
+		};
+		template<typename StreamType>
+		class stream_extractor<StreamType, StreamType>
+		{
+		public:
+			static StreamType get_stream_from_map(std::map<std::string, StreamType> &streams, const std::string &name)
+			{
+				auto stream_it = streams.find(name);
+				if (stream_it == streams.end()) {
+					throw parser_exception("");
+				}
+
+				StreamType result = std::move(stream_it->second);
+				streams.erase(stream_it);
+
+				return result;
+			}
+		};
+
+
 		/**
 		* This class implements methods of resource_fetcher for organisation of input string streams.
 		*/
-		class string_stream_fetcher : public resource_fetcher
+		template<typename StreamType, typename StorageType = StreamType>
+		class stream_resource_stack : public resource_stack<StreamType>
 		{
 		private:
-			std::vector< std::pair< std::string, std::unique_ptr< std::stringstream > > > resources_;
+			typedef std::map<std::string, StorageType> storage_map;
+			typedef stream_extractor<StreamType, StorageType> extractor;
+
+			/** Mapping from names to specific streams. Immutable once intialized to preserve pointers. */
+			storage_map streams_;
+		protected:
+			/**
+			* Returns istream corresponding to file with given name.
+			* @param file_name name of fetched file.
+			*/
+			virtual StreamType get_resource(const std::string &name)
+			{
+				return extractor::get_stream_from_map(streams_, name);
+			}
+
+			virtual bool get_line(StreamType &resource, std::string &out_string) const
+			{
+				return static_cast<bool>(std::getline(resource, out_string));
+			}
 		public:
-			virtual std::unique_ptr<std::istream> get_resource(const std::string &string_name);
-
-			void insert_stream(std::string name, std::unique_ptr <std::stringstream> stream)
+			stream_resource_stack(const std::string &initial_stream_name, const storage_map& streams)
+				: streams_(streams)
 			{
-				resources_.push_back(std::pair< std::string, std::unique_ptr < std::stringstream > >(name, std::move(stream)));
+				initialize(extractor::get_stream_from_map(streams_, initial_stream_name));
 			}
-			virtual void release_all()
-			{
-				for (auto i = resources_.begin(); i < resources_.end(); i++)
-				{
-					i->second.release();
-				}
-				resources_.clear();
-			}
-
+			virtual ~stream_resource_stack() {}
 		};
 	private:
 		/**
@@ -110,6 +247,7 @@ namespace inicpp
 		//static config internal_load(std::istream &str);
 		static void internal_save(const config &cfg, const schema &schm, std::ostream &str);
 
+		/*
 		class resource_stack
 		{
 		private:
@@ -123,13 +261,13 @@ namespace inicpp
 			void release_all();
 
 
-		};	
+		};
+		*/
+
 		/**
 		* This internal_load which allows the #include functionality.
 		*/
-		static config parser::internal_load(std::unique_ptr<std::istream> initial_stream,
-			const std::string & initial_stream_name,
-			std::unique_ptr<resource_fetcher> resources = std::unique_ptr<resource_fetcher> (new file_fetcher()));
+		static config parser::internal_load(resource &res);
 	public:
 		/**
 		 * Deleted default constructor.
@@ -190,6 +328,27 @@ namespace inicpp
 		static config load(std::istream &str, const schema &schm, schema_mode mode);
 
 		/**
+		* Load in configuaration from sources stored in resource.
+		* @param res ini configuration resource
+		* @param res_fetcher resource fetcher to be used
+		* @throws parser_exception if ini configuration is wrong
+		* @throws validation_exception if configuration does not comply schema
+		* @return new instance of config class
+		*/
+		static config load(resource &res);
+		/**
+		* Load in configuaration from sources stored in resource.
+		* @param res ini configuration resource
+		* @param schm validation schema
+		* @param mode validation mode
+		* @param res_fetcher resource fetcher to be used
+		* @throws parser_exception if ini configuration is wrong
+		* @throws validation_exception if configuration does not comply schema
+		* @return new instance of config class
+		*/
+		static config load(resource &res, const schema &schm, schema_mode mode);
+
+		/**
 		 * Load ini configuration from file with specified name.
 		 * @param file name of file which contains ini configuration
 		 * @return new instance of config class
@@ -207,16 +366,6 @@ namespace inicpp
 		 * @throws validation_exception if configuration does not comply schema
 		 */
 		static config load_file(const std::string &file, const schema &schm, schema_mode mode);
-		/**
-		* Load in configuaration from sources stored in resource fetcher.
-		* @param init_name name of initial resource
-		* @param schm validation schema
-		* @param mode validation mode
-		* @param res_fetcher resource fetcher to be used
-		*/
-		static config parser::load_from_fetcher(const std::string &init_name,
-			const schema &schm, schema_mode mode,
-			std::unique_ptr<resource_fetcher> res_fetcher);
 
 
 		/**

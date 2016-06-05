@@ -131,3 +131,45 @@ TEST(parser, store_config)
 								  "unsigned = 42\n";
 	EXPECT_EQ(str.str(), expected_result);
 }
+
+
+TEST(parser, including_others)
+{
+	EXPECT_THROW(parser::load_file("nonexisting_file.txt"), parser_exception);
+
+	parser::stream_resource_stack<std::stringstream, std::string> inputs("config.ini", {
+		{ "config.ini",
+			"#include first.ini\n"
+			"   #include second.ini"
+		},
+		{ "first.ini",
+			"[section]\n"
+			"opt = val\n"
+			"#include inner.ini"
+		},
+		{ "second.ini",
+			"[section2::a]\n"
+			"link = ${section#opt}\n"
+			"#include inner.ini"
+		},
+		{ "inner.ini",
+			"opt2 = val2, val3, val4"
+		}
+	});
+
+	auto loaded_config = parser::load(inputs);
+	EXPECT_EQ(loaded_config.size(), 2u);
+	EXPECT_EQ(loaded_config[0].get_name(), "section");
+	EXPECT_EQ(loaded_config[1].get_name(), "section2::a");
+	EXPECT_EQ(loaded_config[0].size(), 2u);
+	EXPECT_EQ(loaded_config[1].size(), 2u);
+	EXPECT_FALSE(loaded_config[0][0].is_list());
+	EXPECT_TRUE(loaded_config[0][1].is_list());
+	EXPECT_EQ(loaded_config[0][0].get_name(), "opt");
+	EXPECT_EQ(loaded_config[0][1].get_name(), "opt2");
+	EXPECT_EQ(loaded_config[0][0].get<string_ini_t>(), "val");
+	std::vector<std::string> expected_list{ "val2", "val3", "val4" };
+	EXPECT_EQ(loaded_config[0][1].get_list<string_ini_t>(), expected_list);
+	EXPECT_EQ(loaded_config[1][0].get<string_ini_t>(), "val");
+	EXPECT_EQ(loaded_config[1][1].get_list<string_ini_t>(), expected_list);
+}

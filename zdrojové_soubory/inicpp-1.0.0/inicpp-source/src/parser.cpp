@@ -72,9 +72,11 @@ namespace inicpp
 
 	std::string parser::extract_file_name_from_include(const std::string &str)
 	{
+		using namespace string_utils;
+
 		std::string result = str.substr(7);
-		result = string_utils::left_trim(result);
-		result = string_utils::right_trim(result);
+		result = left_trim(result);
+		result = right_trim(result);
 
 		return result; // remove "#include "
 	}
@@ -181,8 +183,8 @@ namespace inicpp
 			throw parser_exception("Identifier contains forbidden characters on line " + std::to_string(line_number));
 		}
 	}
-/*
-	config parser::internal_load(std::istream &str)
+
+	config parser::internal_load(resource &res)
 	{
 		using namespace string_utils;
 
@@ -191,7 +193,7 @@ namespace inicpp
 		std::string line;
 		size_t line_number = 0;
 
-		while (std::getline(str, line)) {
+		while (res.get_line(line)) {
 			line_number++;
 
 			// if there was comment delete it
@@ -200,9 +202,6 @@ namespace inicpp
 
 			if (line.empty()) { // empty line
 				continue;
-			}else if (starts_with(line, "#include ")) {
-				// we need to include new file, but we got no resource
-				throw parser_exception("Included	");
 			}
 			else if (starts_with(line, "[")) { // start of section
 				line = right_trim(line);
@@ -271,7 +270,8 @@ namespace inicpp
 
 		return cfg;
 	}
-	*/
+	
+	/*
 	config parser::internal_load(std::unique_ptr<std::istream> initial_stream, 
 		const std::string & initial_stream_name,
 		std::unique_ptr<resource_fetcher>  resources = std::unique_ptr<resource_fetcher>(new file_fetcher()))
@@ -393,6 +393,8 @@ namespace inicpp
 
 		return cfg;
 	}
+	*/
+
 	void parser::internal_save(const config &cfg, const schema &schm, std::ostream &str)
 	{
 		for (auto &sect : cfg) {
@@ -438,55 +440,56 @@ namespace inicpp
 
 	config parser::load(const std::string &str)
 	{
-		std::unique_ptr<std::istream> input (new std::istringstream (str));
-		return internal_load(std::move(input), str);
+		std::istringstream input(str);
+		stream_resource res(input);
+		return load(res);
 	}
 
 	config parser::load(const std::string &str, const schema &schm, schema_mode mode)
 	{
-		std::unique_ptr<std::istream> input(new std::istringstream(str));
-		config cfg = internal_load(std::move(input), str);
-		cfg.validate(schm, mode);
-		return cfg;
+		std::istringstream input(str);
+		stream_resource res(input);
+		return load(res, schm, mode);
 	}
 
 	config parser::load(std::istream &str)
 	{
-		std::unique_ptr<std::istream> input(&str);
-		return internal_load(std::move(input), "");
+		stream_resource res(str);
+		return load(res);
 	}
 
 	config parser::load(std::istream &str, const schema &schm, schema_mode mode)
 	{
-		std::unique_ptr<std::istream> input(&str);
-		config cfg = internal_load(std::move(input), "");
+		stream_resource res(str);
+		return load(res, schm, mode);
+	}
+
+	config parser::load(resource &res)
+	{
+		return internal_load(res);
+	}
+
+	config parser::load(resource &res, const schema &schm, schema_mode mode)
+	{
+		config cfg = internal_load(res);
 		cfg.validate(schm, mode);
 		return cfg;
 	}
 
 	config parser::load_file(const std::string &file)
 	{
-		std::unique_ptr<std::istream> input(new std::ifstream(file));
-		if (input->fail()) {
-			throw parser_exception("File reading error");
-		}
-		std::unique_ptr<resource_fetcher> res_fetcher(new file_fetcher());
-
-		return internal_load(std::move(input), file);
+		file_resource_stack res(file);
+		return load(res);
 	}
 
 	config parser::load_file(const std::string &file, const schema &schm, schema_mode mode)
 	{
-		std::unique_ptr<std::istream> input ( new std::ifstream(file));
-		if (input->fail()) {
-			throw parser_exception("File reading error");
-		}
-		std::unique_ptr<resource_fetcher> res_fetcher (new file_fetcher());
-		config cfg = internal_load( std::move(input), file);
-		cfg.validate(schm, mode);
-		return cfg;
+		file_resource_stack res(file);
+		return load(res, schm, mode);
 	}
 
+
+	/*
 	config parser::load_from_fetcher(const std::string &init_name, const schema &schm, schema_mode mode, 
 			std::unique_ptr<resource_fetcher> res_fetcher)
 	{
@@ -499,7 +502,7 @@ namespace inicpp
 		cfg.validate(schm, mode);
 		return cfg;
 	}
-
+	*/
 
 
 	void parser::save(const config &cfg, const std::string &file)
@@ -538,6 +541,7 @@ namespace inicpp
 		str << schm;
 	}
 
+	/*
 	std::unique_ptr<std::istream> parser::string_stream_fetcher::get_resource(const std::string &string_name)
 	{
 		for (auto i = resources_.begin(); i < resources_.end(); i++)
@@ -581,4 +585,5 @@ namespace inicpp
 		}
 		istreams_.clear();
 	}
+	*/
 }
