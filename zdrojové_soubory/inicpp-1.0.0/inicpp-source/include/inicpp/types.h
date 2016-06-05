@@ -232,7 +232,7 @@ namespace inicpp
 		{
 		}
 		/** Constructor with initial value */
-		internal_locale_type(const std::string &value) : data_(value)
+		internal_locale_type(const std::string &value) : data_(value.c_str())
 		{
 		}
 		/** Copy constructor */
@@ -309,7 +309,7 @@ namespace inicpp
 		/** Comparation less operator */
 		bool operator<(const internal_locale_type &other) const
 		{
-			return std::string(data_.c_str()) < other.data_.c_str();
+			return name() < other.name();
 		}
 
 	private:

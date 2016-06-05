@@ -158,8 +158,8 @@ namespace inicpp
 		date_ini_t parse_string<date_ini_t>(const std::string &value, const std::string &option_name)
 		{
 			std::istringstream stream(value);
-			tm time_data;
-			stream >> std::get_time(&time_data, date_ini_t::DATE_FORMAT_STRING);
+			tm time_data{0,0,0,0,0,0,0,0};
+			//stream >> std::get_time(&time_data, date_ini_t::DATE_FORMAT_STRING);
 			if (!stream.fail()) {
 				return date_ini_t(time_data);
 			} else {

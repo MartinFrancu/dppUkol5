@@ -201,10 +201,10 @@ TEST(option, writing_to_stream)
 
 	// locale
 	str.str("");
-	std::locale locale("cs-CZ");
+	std::locale locale("cs_CZ");
 	my_option.set<locale_ini_t>(locale);
 	str << my_option;
-	EXPECT_EQ(str.str(), "name = cs-CZ\n");
+	EXPECT_EQ(str.str(), "name = cs_CZ\n");
 
 	// string list
 	str.str("");

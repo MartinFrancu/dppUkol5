@@ -300,10 +300,11 @@ namespace inicpp
 	}
 	void write_date_option(std::vector<date_ini_t> values, std::ostream &os)
 	{
+		/*
 		os << std::put_time(&values[0].as_tm(), date_ini_t::DATE_FORMAT_STRING);
 		for (auto it = values.begin() + 1; it != values.end(); ++it) {
 			os << "," << std::put_time(&it->as_tm(), date_ini_t::DATE_FORMAT_STRING);
-		}
+		}*/
 	}
 	void write_locale_option(std::vector<locale_ini_t> values, std::ostream &os)
 	{
