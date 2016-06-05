@@ -1,0 +1,116 @@
+
+=INICPP Hodnocení návrhu========================================================
+
+Návrh, až na detaily, splňuje požadovanou funkcionalitu a kód dodržuje vybrané 
+konvence. Slabinou návrhu se zdá být poněkud těžkopádné přidávání nových typů. 
+Celkově ale návrh považujeme za kvalitní a dobře implementovaný.  
+
+
+-Formální požadavky-------------------------------------------------------------
+
+Autoři striktně dodržovali zvolenou konvenci formátování kódu. Zvolené názvy 
+metod a proměnných jsou dobře popisné. Zanoření bylo uržováno na rozumné úrovni
+maximálně tří bloků. Metody jsou až na vyjímky ("internal_load") velmi krátké 
+což rovněž příspívá k přehlednosti. Komentáře jsou přítomny v téměř každé delší 
+metodě. Cělkově tedy hodnotíme kód jako dobře přehledný. K oštřetní chyb jsou 
+použity vyjímky.  
+
+Funkcionalita knihovny odpovídá zadání. Jediným prohřešením proti zadání, které 
+jsme zaznamenali je rozhodnutí autorů nezachovávat strukturu vstupu. Balíček 
+obsahuje adekvátní dokumentaci a cmake soubory pro build všech částí, podle 
+zadání. Pokrytí  kódu pomocí testů je adekvátní.
+
+Návrh rozdělil pravomoci do snadno srozumitelných tříd. Třída "parser" se stará 
+o převod dat z textového formátu do strukturovaného formátu. Produktem načtení 
+".ini" souboru je instance třídy "config". Načtení je možno provádět buď ze 
+souboru nebo z istreamu. 
+
+Ta sdržuje načtené sekce a zpřístupňuje je pomocí operátoru [] podle indexu 
+i podle jména sekce. Tento systém umožňuje pohodlný přístup k sekcím, zároveň 
+však může být dvojí způsob zdrojem nejasnosti. 
+
+Třída "section" (reprezentující sekci voleb) potom stejným způsobem 
+zpřístupňuje jednotlivé volby. 
+
+Logicky následuje třída "option". Jediná třída slouží k přístupu k seznamům 
+hodnot i k jediné hodnotě (což může vést uživatele k chybám, nicméně v 
+dokumentaci je explicitně uvedeno chování v těchto případech, takže je uživatel 
+na toto chování připraven). Třída mění typ obsažené hodnoty podle třídy hodnoty 
+do ní přiřazené (přetížený operátor "="). Tato vlastnot na jedné straně 
+usnaďnuje zacházení s volbami. Na druhé straně uživateli snadno dovolí změnit 
+typ volby se kterou pracuje (nepozorné přiřazení atd..). Situace ve které by 
+se v rámci práce s konfigurací změnil typ nějaké volby asi nebude moc častá. 
+Proto bych je toto chování diskutabilní. Nové datové typy tedy vyžadují 
+implementaci nových metod v této třídě (jak je poznamenán v části Rozšíření).
+
+Speciální výčtové typy jsou ošetřeny type "internal_enum_type".  
+
+Kontrola, zda načtená konfigurace odpovídá definovanému schématu 
+konfigurace, se provádí pomocí metody třídy "config" a pomocných tříd "schema",
+"section_schema" a "option_schema". 
+
+
+-Doprovodný text----------------------------------------------------------------
+
+Zdůvodnění návrhu bylo dostačující. Z hlediska uživatele by se dalo vytknout
+přílišné soustředění se na technické detaily a důvody k volbě jednotlivých 
+frameworků. (Jakmile jsou již tyto rozhodnutí dána, uživatel s nimi nic neudělá.
+Proto(pro uživatele/programátora rozšíření) nemají valnou hodnotu.) Asi by bylo 
+vhodnější využít daný prostor k lepšímu seznámení čtenáře s vnitřní strukturou 
+knihovny (převážně nedokumentované privátní metody a jejich funkce). Kdyby 
+autoři předvídali rozšíření o další datový typ, zde by bylo dobré naznačit místa
+kde je potřeba kód knihovny upravit. Z tohoto důvodu nebylo zdůvodnění návrhu 
+velkým pomocníkem při implementace rozšíření. Dobře však dokumentuje proces 
+vzniku návrhu. 
+
+Dokumentace je dostačující, ale v některých případech možná příliš stručná. 
+(Například třída "internal_enum_type".) 
+
+Příležitostně se dá v dokumentaci objevit nějaká nepřesnost, například 
+konstruktor třídy "option" beroucí jako parametry dva stringy. V dokumentaci je
+popsán jako konstruktor pro volby s určeným typem. Podle implementace je však 
+vytvořena instance třídy "option" nastavená na hodnotu typu "string". 
+
+
+-Rozšíření----------------------------------------------------------------------
+
+Přidání funkcionality "#include" do vstupního formátu bylo přeměřeně pracné - 
+bylo potřeba změnit pouze metodu "parser::load_internal". (Ačkoli jsme pro 
+lepší testování zvolili trochu složitější návrh, ktery vyžadoval více změn.) 
+V tomto ohledu je tedy původní návrh přiměřeně snadno rozšířitelný. Nové 
+rozšíření umožňuje načítat nejen z více souborů ale i z více pojmenovaných 
+istreamů.
+
+Rozšíření knihovny o nový datový typ nebylo moc příjemné. Autoří zvolili řešení 
+pomocí výčtového typu obsahující všechny podporované formáty. Vlastní 
+implementace různých chování potom byla řešena pomocí větvení "switch" podle 
+výčtového typu formátů dat. Nevýhodou tohoto přístupu je roztroušení kódu, který
+se vztahuje k jednotlivým datovým typům do různých míst. Je potřeba upravit 
+nejen třídu "option_type", ale i metody tříd "option" a "option_schema". (Naproti
+tomu privátní třída "convertor" úpravu nepotřebuje, což není na první pohled 
+zřejmé.)
+
+Autor následného rozšíření se tedy musí seznámit s celým projektem, aby upravil 
+všechny potřebné pasáže. Rozšíření v tomto smyslu bylo naznačeno již v původním 
+zadání, proto považovažujeme prezentované řešení v tomto ohledu za spíše špatně 
+rozšiřitelné. 
+
+  
+-Unit testy---------------------------------------------------------------------
+
+Unit testy projektu jsou vytvořeny pomocí v frameworku Google Test. Testy jsou 
+rozděleny podle tříd jejichž funkčnost prověřují. Testování se zaměřuje na 
+základní použití knihovny s běžnými případy. 
+
+Vyskytl se teoretický problém, že 
+v některých testech nebyla naplněn význam spojení "unit test", protože bylo 
+testováno hned několik tříd najednou. To však vyplývá z povahy problému: nelze 
+testovat třídu "config" bez ostatních tříd, které spravuje. Z tohot důvodu to
+nepovažujeme za problém.
+
+V některých případech byly testy snad až příliš podrobné. Například testy na 
+defaultní vyjímek se zdají být téměř paranoidní (vyjímky jsou vytvořeny 
+konstruktorem a potom je testováno, zda mají odpovídající popis). 
+
+Pokrytí kódu testy je velmi dobré. Testy jsou doplněny komentářem a jejich 
+průběh je dobře srozumitelný. 
